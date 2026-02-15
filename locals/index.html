@@ -1,0 +1,468 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>UK Power Map — 2026 Council Elections Model</title>
+<link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css">
+<script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+<style>
+  @import url('https://fonts.googleapis.com/css2?family=Source+Sans+3:wght@400;600;700;800&display=swap');
+  *{margin:0;padding:0;box-sizing:border-box}
+  body{font-family:'Source Sans 3','Segoe UI',system-ui,sans-serif;background:#f0f2f5;color:#1a1a2e}
+  .top-bar{display:flex;align-items:center;justify-content:space-between;padding:12px 20px;flex-wrap:wrap;gap:8px;background:#fff;border-bottom:2px solid #e2e4e9;box-shadow:0 2px 8px rgba(0,0,0,0.06);position:relative;z-index:1001}
+  .top-left{display:flex;align-items:center;gap:14px}
+  .top-left h1{font-size:20px;font-weight:800;letter-spacing:-0.3px}
+  .top-left .sub{font-size:10px;color:#5a6577;margin-top:1px}
+  .nav-links{display:flex;gap:6px;align-items:center}
+  .nav-link{font-size:12px;color:#1d70b8;text-decoration:none;font-weight:600;padding:6px 14px;border-radius:6px;transition:all 0.15s;border:1px solid transparent}
+  .nav-link:hover{background:#f0f2f5;border-color:#d1d5db}
+  .nav-link.active{background:#1a1a2e;color:#fff;border-color:#1a1a2e}
+  .controls{display:flex;gap:0;flex-wrap:wrap;align-items:center;padding:4px 0}
+  .layer-group{display:flex;gap:0;margin-right:10px;position:relative;margin-top:16px}
+  .layer-group-label{font-size:8px;font-weight:700;text-transform:uppercase;letter-spacing:0.6px;color:#9ca3af;position:absolute;top:-12px;left:4px}
+  .map-btn{padding:6px 12px;border:1px solid #d1d5db;font-size:10.5px;font-weight:600;background:#fff;cursor:pointer;color:#555;font-family:inherit;transition:all 0.15s;white-space:nowrap;border-right:none}
+  .map-btn:first-of-type{border-radius:5px 0 0 5px}
+  .map-btn:last-of-type{border-radius:0 5px 5px 0;border-right:1px solid #d1d5db}
+  .map-btn:only-of-type{border-radius:5px;border-right:1px solid #d1d5db}
+  .map-btn:hover{background:#f5f6f8}
+  .map-btn.active{background:#1a1a2e;color:#fff;border-color:#1a1a2e}
+  #map{height:calc(100vh - 94px);width:100%}
+  .legend{background:#fff;padding:10px 14px;border-radius:8px;box-shadow:0 2px 8px rgba(0,0,0,0.15);font-size:10.5px;line-height:1.6;max-width:280px}
+  .legend-title{font-weight:700;margin-bottom:4px;font-size:11px}
+  .legend-item{display:flex;align-items:flex-start;gap:5px;margin-bottom:1px}
+  .legend-swatch{width:14px;height:10px;border-radius:1px;border:1px solid rgba(0,0,0,0.08);flex-shrink:0;margin-top:3px}
+  .legend-note{font-size:9px;color:#888;margin-top:4px;border-top:1px solid #eee;padding-top:4px}
+  .legend-def{font-size:9px;color:#888;line-height:1.3}
+  .info{background:#fff;padding:12px 14px;border-radius:8px;box-shadow:0 2px 8px rgba(0,0,0,0.15);font-size:11.5px;line-height:1.5;max-width:360px;min-width:240px}
+  .info h4{font-size:13px;font-weight:700;margin-bottom:2px;color:#1a1a2e}
+  .info .ip-council{font-weight:600;color:#5a6577;font-size:10.5px}
+  .info .ip-stat{color:#5a6577;font-size:10.5px;margin-top:2px}
+  .info .ip-section{margin-top:6px;padding-top:5px;border-top:1px solid #f0f0f0}
+  .info .ip-section-title{font-size:9px;font-weight:700;text-transform:uppercase;letter-spacing:0.5px;color:#9ca3af;margin-bottom:2px}
+  .info .ip-tag{display:inline-block;font-size:9px;font-weight:700;padding:2px 6px;border-radius:3px;margin-top:3px;margin-right:3px}
+  .bar{display:flex;height:6px;border-radius:3px;overflow:hidden;margin:3px 0;background:#f0f0f0}
+  .bar span{display:block;min-width:1px}
+  .stats-bar{position:absolute;bottom:12px;left:50%;transform:translateX(-50%);z-index:1000;background:rgba(255,255,255,0.95);padding:6px 16px;border-radius:20px;box-shadow:0 2px 8px rgba(0,0,0,0.15);font-size:10.5px;font-weight:600;color:#1a1a2e;white-space:nowrap;pointer-events:none;backdrop-filter:blur(4px);max-width:96vw;overflow:hidden;text-overflow:ellipsis}
+  .stats-bar span{color:#5a6577;font-weight:400}
+  .sw-neg{color:#dc2626;font-weight:700} .sw-pos{color:#16a34a;font-weight:700}
+  .modal-overlay{position:fixed;top:0;left:0;width:100%;height:100%;background:rgba(0,0,0,0.5);z-index:2000;display:none;justify-content:center;align-items:center}
+  .modal-overlay.show{display:flex}
+  .meth-box{background:#fff;border-radius:12px;max-width:680px;width:90%;max-height:85vh;overflow-y:auto;padding:28px 32px;box-shadow:0 12px 40px rgba(0,0,0,0.2);position:relative}
+  .meth-box h2{font-size:18px;font-weight:800;margin-bottom:12px}
+  .meth-box h3{font-size:13px;font-weight:700;margin:14px 0 6px;color:#1a1a2e}
+  .meth-box p,.meth-box li{font-size:12px;line-height:1.6;color:#374151;margin-bottom:6px}
+  .meth-box ul{padding-left:18px;margin-bottom:8px}
+  .meth-box code{background:#f3f4f6;padding:1px 4px;border-radius:3px;font-size:11px}
+  .meth-box table{width:100%;border-collapse:collapse;margin:8px 0;font-size:11px}
+  .meth-box th,.meth-box td{padding:4px 8px;border:1px solid #e5e7eb;text-align:left}
+  .meth-box th{background:#f9fafb;font-weight:700}
+  .meth-close{position:absolute;top:12px;right:16px;background:none;border:none;font-size:24px;cursor:pointer;color:#999}
+  .disclaimer{background:#fef3c7;border:1px solid #fcd34d;border-radius:6px;padding:8px 12px;margin-top:12px;font-size:10.5px;color:#92400e}
+  /* Gains & Losses modal */
+  .gl-box{background:#fff;border-radius:12px;max-width:920px;width:95%;max-height:85vh;overflow-y:auto;padding:28px 32px;box-shadow:0 12px 40px rgba(0,0,0,0.2);position:relative}
+  .gl-box h2{font-size:18px;font-weight:800;margin-bottom:12px}
+  .gl-box .meth-close{position:absolute;top:12px;right:16px;background:none;border:none;font-size:24px;cursor:pointer;color:#999}
+  .gl-table{width:100%;border-collapse:collapse;font-size:11px}
+  .gl-table th{position:sticky;top:0;background:#f9fafb;font-weight:700;padding:6px 8px;border:1px solid #e5e7eb;text-align:center;cursor:pointer;user-select:none}
+  .gl-table th:hover{background:#e5e7eb}
+  .gl-table td{padding:4px 8px;border:1px solid #e5e7eb;text-align:center;font-size:10.5px}
+  .gl-table td:first-child{text-align:left;font-weight:600}
+  .gl-table td:nth-child(2){text-align:left;font-size:9.5px;color:#6b7280}
+  .gl-gain{color:#16a34a;font-weight:700}
+  .gl-loss{color:#dc2626;font-weight:700}
+  .gl-summary{background:#f0f2f5;border-radius:8px;padding:10px 14px;margin-bottom:14px;font-size:11px;display:flex;gap:16px;flex-wrap:wrap;align-items:center}
+  .gl-summary .party-chip{display:inline-flex;align-items:center;gap:4px;font-weight:700;font-size:11px}
+  .gl-ctrl-change{font-size:9px;font-weight:600;padding:2px 5px;border-radius:3px}
+</style>
+</head>
+<body>
+<div class="top-bar">
+  <div class="top-left">
+    <div><h1>2026 Council Elections Model</h1><div class="sub">Locally-sensitive demographic predictions &middot; 1,620 wards &middot; 106 councils &middot; Census 2021 &middot; Polling Feb 2026</div></div>
+  </div>
+  <div class="nav-links">
+    <a class="nav-link" href="../index.html">&#9776; Power Map</a>
+    <a class="nav-link" href="../maps/index.html">&#9881; Constituency Maps</a>
+    <a class="nav-link" href="../mps/index.html">&#128101; All MPs</a>
+    <a class="nav-link active" href="#">&#127975; 2026 Locals</a>
+    <a class="nav-link" href="#" onclick="document.getElementById('gl-modal').classList.add('show');loadGainsLosses();return false">&#128200; Gains &amp; Losses</a>
+    <a class="nav-link" href="#" onclick="document.getElementById('meth-modal').classList.add('show');return false">&#128214; Methodology</a>
+  </div>
+</div>
+<div style="background:#fff;border-bottom:1px solid #e2e4e9;padding:6px 20px;display:flex;flex-wrap:wrap;gap:0;align-items:center">
+  <div class="controls">
+    <div class="layer-group">
+      <span class="layer-group-label">Predictions</span>
+      <button class="map-btn active" onclick="setLayer('predicted_winner')" id="btn-predicted_winner">Predicted Winner</button>
+      <button class="map-btn" onclick="setLayer('baseline_winner')" id="btn-baseline_winner">Baseline (Last)</button>
+      <button class="map-btn" onclick="setLayer('seat_change')" id="btn-seat_change">Seat Changes</button>
+    </div>
+    <div class="layer-group">
+      <span class="layer-group-label">Reform</span>
+      <button class="map-btn" onclick="setLayer('reform_pct')" id="btn-reform_pct">Reform Vote %</button>
+      <button class="map-btn" onclick="setLayer('reform_swing')" id="btn-reform_swing">Swing Multiplier</button>
+    </div>
+    <div class="layer-group">
+      <span class="layer-group-label">Demographics</span>
+      <button class="map-btn" onclick="setLayer('education')" id="btn-education">Education</button>
+      <button class="map-btn" onclick="setLayer('diversity')" id="btn-diversity">Diversity</button>
+      <button class="map-btn" onclick="setLayer('bivariate')" id="btn-bivariate">Edu &times; Reform</button>
+    </div>
+  </div>
+</div>
+<div id="map"></div>
+
+<!-- Gains & Losses modal -->
+<div class="modal-overlay" id="gl-modal" onclick="if(event.target===this)this.classList.remove('show')">
+<div class="gl-box">
+<button class="meth-close" onclick="document.getElementById('gl-modal').classList.remove('show')">&times;</button>
+<h2>Predicted Gains &amp; Losses by Council</h2>
+<div class="gl-summary" id="gl-summary">Loading...</div>
+<div style="max-height:60vh;overflow-y:auto">
+<table class="gl-table" id="gl-table">
+<thead><tr>
+<th onclick="sortGL(0)">Council</th>
+<th onclick="sortGL(1)">Type</th>
+<th onclick="sortGL(2)" style="color:#0087dc">CON +/-</th>
+<th onclick="sortGL(3)" style="color:#e4003b">LAB +/-</th>
+<th onclick="sortGL(4)" style="color:#faa61a">LD +/-</th>
+<th onclick="sortGL(5)" style="color:#12b6cf">REF +/-</th>
+<th onclick="sortGL(6)" style="color:#6ab023">GRN +/-</th>
+<th onclick="sortGL(7)" style="color:#888">OTH +/-</th>
+<th onclick="sortGL(8)">Control</th>
+</tr></thead>
+<tbody id="gl-tbody"></tbody>
+</table>
+</div>
+</div>
+</div>
+
+<!-- Methodology modal -->
+<div class="modal-overlay" id="meth-modal" onclick="if(event.target===this)this.classList.remove('show')">
+<div class="meth-box">
+<button class="meth-close" onclick="document.getElementById('meth-modal').classList.remove('show')">&times;</button>
+<h2>Methodology: Locally-Sensitive Prediction Model (Phase 5.1)</h2>
+<p>This model predicts ward-level results for the 7 May 2026 English council elections using a 6-step locally-sensitive approach that combines Census demographics, historical election baselines, party demographic profiles, and current polling.</p>
+
+<h3>1. Demographic profiles (data-driven, not uniform multipliers)</h3>
+<p>Using ~1,400 wards with both Census data and historical results (2024/2022), we compute each party's average vote share by:</p>
+<ul>
+<li><b>Education quintile</b> (% with Level 4+ qualification)</li>
+<li><b>Ethnicity quintile</b> (% non-white population)</li>
+<li><b>IMD deprivation quintile</b> (from PCON data)</li>
+<li><b>Council type</b> (London borough, metropolitan, county, etc.)</li>
+</ul>
+<p>This generates a <b>local demographic multiplier</b> for each party in each ward: <code>demo_mult = expected_local_share / national_average_share</code>. This replaces the uniform national multipliers used in earlier versions.</p>
+
+<h3>2. Reform swing model</h3>
+<p>Since Reform barely stood in pre-2024 local elections, their demographic variation uses the parliamentary swing regression:</p>
+<p><code>swing_mult = (33.47 &minus; 0.483 &times; degree% &minus; 0.101 &times; non-white%) / 16.2</code></p>
+<p>R&sup2; = 0.553 from 571 constituencies. This produces a multiplier applied to Reform's national poll share.</p>
+
+<h3>3. Polling inputs (February 2026)</h3>
+<table>
+<tr><th>Party</th><th>National poll %</th></tr>
+<tr><td>Reform</td><td>29.7%</td></tr>
+<tr><td>Labour</td><td>19.3%</td></tr>
+<tr><td>Conservative</td><td>19.1%</td></tr>
+<tr><td>Green</td><td>14.1%</td></tr>
+<tr><td>Lib Dem</td><td>12.3%</td></tr>
+</table>
+<p>Raw national polls are used directly. Local variation (e.g. Greens stronger in educated wards, Lib Dems stronger where they have historical presence) is captured entirely by the demographic profile system in Step 1 rather than uniform multipliers. This means each party's effective local share varies by ward demographics and council type.</p>
+
+<h3>4. Alpha blending with local history</h3>
+<p>Each ward's prediction blends the demographic model with historical results:</p>
+<p><code>final(p, ward) = &alpha; &times; historical(p) + (1&minus;&alpha;) &times; adjusted_national(p)</code></p>
+<ul>
+<li>&alpha; = 0.5 for 2024 baseline (most recent, most relevant)</li>
+<li>&alpha; = 0.3 for 2022 baseline (older cycle)</li>
+<li>&alpha; = 0.0 for wards with no baseline (pure model)</li>
+<li>Reform uses reduced &alpha; (max 0.15) since their local baseline is unreliable</li>
+</ul>
+
+<h3>5. Incumbency &amp; contest adjustments</h3>
+<ul>
+<li><b>+3pp</b> for the party that won the ward last time (incumbency bonus)</li>
+<li><b>+1.5pp</b> for the party controlling the council</li>
+<li>Region/council-type adjustments: e.g. Labour +4pp in London, Reform +3pp in counties</li>
+</ul>
+
+<h3>6. Candidate coverage &amp; normalization</h3>
+<ul>
+<li><b>CON/LAB</b>: always stand</li>
+<li><b>LD</b>: stand if historical presence &gt;5% or degree% &gt;25</li>
+<li><b>REF</b>: stand if swing multiplier &ge;0.3 (deterministic threshold)</li>
+<li><b>GREEN</b>: stand if degree% &ge;30 or historical presence &gt;3%</li>
+</ul>
+<p>Non-standing parties' shares are redistributed proportionally. Final shares normalized to 100%.</p>
+
+<h3>Coverage</h3>
+<p>This model covers <b>1,620 wards</b> across <b>106 councils</b>. 30 councils (487 wards) whose elections were postponed to 2027 due to local government reorganisation are excluded. Coverage improvements over Phase 5 come from matching county electoral divisions (CEDs) and metropolitan slug codes to Census wards using name-matching and PCON-level demographic fallbacks.</p>
+
+<h3>Limitations</h3>
+<div class="disclaimer">
+<b>This is a model, not a forecast.</b> Key limitations:
+<ul style="margin-top:4px">
+<li><b>~440 wards without baseline</b>: mainly county divisions &mdash; treated as pure model predictions with no seat-change flag</li>
+<li><b>No true incumbency data</b>: the +3pp bonus is applied to the baseline-winning party, not the actual sitting councillor</li>
+<li><b>No local factors</b>: council tax disputes, scandals, independent candidates, and party organisation cannot be captured</li>
+<li><b>Boundary changes</b>: some wards have been redrawn since the baseline election</li>
+<li><b>Turnout not modelled separately</b>: local turnout (~30%) skews older and more engaged</li>
+<li><b>Reform baseline unreliable</b>: Reform barely stood in 2022/2024 locals, so the model uses low alpha for blending</li>
+<li><b>~300 wards without GeoJSON</b>: county divisions with slug codes that couldn't be matched to lower-tier ward boundaries</li>
+</ul>
+</div>
+
+<h3>Data sources</h3>
+<ul>
+<li>Census 2021 (ONS Nomis): TS067 (qualifications), TS021 (ethnic group) at ward level</li>
+<li>ONS Open Geography Portal: Ward to PCON/LAD/UTLA July 2024 lookup</li>
+<li>House of Commons Library: 2022 &amp; 2024 local election ward results</li>
+<li>Democracy Club: 2026 ward contest list (API)</li>
+<li>PollCheck / ElectionPolling.co.uk: February 2026 polling averages</li>
+<li>Ipsos (Jan 2026): vote-switching matrices</li>
+<li>Mark Pack: council by-election scorecard 2025&ndash;26</li>
+</ul>
+</div>
+</div>
+
+<script>
+var CL='predicted_winner',geoData,mapData,councilData,map,geoLayer,legendCtrl,infoCtrl,statsDiv;
+
+function partyColor(p){return{LAB:'#e4003b',CON:'#0087dc',LD:'#faa61a',REF:'#12b6cf',GREEN:'#6ab023',OTHER:'#888'}[p]||'#ccc'}
+function partyName(p){return{LAB:'Labour',CON:'Conservative',LD:'Lib Dem',REF:'Reform',GREEN:'Green',OTHER:'Other/Ind'}[p]||p}
+
+function reformPctColor(v){if(v==null||v===0)return'#f3f4f6';if(v>=35)return'#134e4a';if(v>=28)return'#0f766e';if(v>=22)return'#0d9488';if(v>=16)return'#14b8a6';if(v>=12)return'#5eead4';if(v>=8)return'#99f6e4';if(v>=4)return'#ccfbf1';return'#f0fdfa'}
+function swingColor(v){if(v==null)return'#f3f4f6';if(v>=1.8)return'#7f1d1d';if(v>=1.5)return'#991b1b';if(v>=1.2)return'#dc2626';if(v>=1.0)return'#f87171';if(v>=0.8)return'#fecaca';if(v>=0.5)return'#bfdbfe';if(v>=0.3)return'#93c5fd';return'#3b82f6'}
+function degreeColor(v){if(v==null)return'#f3f4f6';if(v>=50)return'#1e3a8a';if(v>=42)return'#1d4ed8';if(v>=36)return'#3b82f6';if(v>=32)return'#60a5fa';if(v>=28)return'#93c5fd';if(v>=24)return'#bfdbfe';if(v>=20)return'#dbeafe';return'#eff6ff'}
+function diversityColor(nw){if(nw>=60)return'#b10026';if(nw>=45)return'#e31a1c';if(nw>=30)return'#fc4e2a';if(nw>=20)return'#fd8d3c';if(nw>=12)return'#feb24c';if(nw>=6)return'#fed976';if(nw>=3)return'#ffeda0';return'#ffffcc'}
+var BIV=[['#3b4994','#8c62aa','#be64ac'],['#5698b9','#a5add3','#dfb0d6'],['#5ac8c8','#ace4e4','#e8e8e8']];
+function bivColor(d,r){if(d==null||r==null)return'#f3f4f6';return BIV[r<8?2:r<20?1:0][d<25?0:d<40?1:2]}
+
+function getStyle(f){
+  var cd=f.properties.cd,d=mapData?mapData[cd]:null;
+  if(!d)return{fillColor:'#e5e7eb',fillOpacity:0.15,weight:0.3,color:'#ccc',opacity:0.2};
+  var fill='#e5e7eb',op=0.75;
+  switch(CL){
+    case'predicted_winner':fill=partyColor(d.pw);op=0.8;break;
+    case'baseline_winner':fill=partyColor(d.bw);op=0.8;break;
+    case'seat_change':if(d.ch){fill=partyColor(d.pw);op=0.9}else{fill='#e5e7eb';op=0.2}break;
+    case'reform_pct':fill=reformPctColor(d.ref);op=d.rs?0.8:0.15;break;
+    case'reform_swing':fill=swingColor(d.sm);break;
+    case'education':fill=degreeColor(d.d);break;
+    case'diversity':fill=diversityColor(d.nw);break;
+    case'bivariate':fill=bivColor(d.d,d.ref);break;
+  }
+  return{fillColor:fill,fillOpacity:op,weight:0.4,color:'#666',opacity:0.3}
+}
+
+function onEachFeature(f,layer){layer.on({
+  mouseover:function(e){e.target.setStyle({weight:2.5,color:'#1a1a2e',opacity:1});e.target.bringToFront();updateInfo(f)},
+  mouseout:function(e){geoLayer.resetStyle(e.target)},
+  click:function(e){map.fitBounds(e.target.getBounds());updateInfo(f)}
+})}
+
+function updateInfo(f){
+  var cd=f.properties.cd,d=mapData?mapData[cd]:null;
+  if(!d){infoCtrl.update('<h4>'+f.properties.nm+'</h4><div class="ip-stat">No prediction data</div>');return}
+  var h='<h4>'+d.n+'</h4>';
+  h+='<div class="ip-council">'+d.c+' &middot; '+d.pcon+'</div>';
+  h+='<div class="ip-stat">'+d.s+' seat'+(d.s>1?'s':'')+' contested &middot; Baseline: '+(d.by||'none')+'</div>';
+
+  /* Baseline bar */
+  h+='<div class="ip-section"><div class="ip-section-title">Baseline Result ('+(d.by||'N/A')+')</div>';
+  h+='<div class="bar">';
+  ['CON','LAB','LD','GREEN','REF','OTHER'].forEach(function(p){
+    var k={CON:'bc',LAB:'bl',LD:'bld',GREEN:'bg',REF:'br',OTHER:'bo'}[p];
+    if(d[k]>0)h+='<span style="width:'+d[k]+'%;background:'+partyColor(p)+'" title="'+partyName(p)+': '+d[k]+'%"></span>';
+  });
+  h+='</div><div class="ip-stat">';
+  ['CON','LAB','LD','GREEN','REF','OTHER'].forEach(function(p){
+    var k={CON:'bc',LAB:'bl',LD:'bld',GREEN:'bg',REF:'br',OTHER:'bo'}[p];
+    if(d[k]>1)h+='<span style="color:'+partyColor(p)+';font-weight:700">'+partyName(p)+'</span> '+d[k]+'% &nbsp;';
+  });
+  h+='</div><div class="ip-stat">Winner: <span style="color:'+partyColor(d.bw)+';font-weight:700">'+partyName(d.bw)+'</span></div></div>';
+
+  /* Predicted bar */
+  h+='<div class="ip-section"><div class="ip-section-title">Predicted Result</div>';
+  h+='<div class="bar">';
+  var ps={CON:d.con,LAB:d.lab,LD:d.ld,GREEN:d.grn,REF:d.ref,OTHER:d.oth};
+  ['CON','LAB','LD','GREEN','REF','OTHER'].forEach(function(p){
+    if(ps[p]>0)h+='<span style="width:'+ps[p]+'%;background:'+partyColor(p)+'" title="'+partyName(p)+': '+ps[p]+'%"></span>';
+  });
+  h+='</div><div class="ip-stat">';
+  ['CON','LAB','LD','GREEN','REF','OTHER'].forEach(function(p){
+    if(ps[p]>1)h+='<span style="color:'+partyColor(p)+';font-weight:700">'+partyName(p)+'</span> '+ps[p]+'% &nbsp;';
+  });
+  h+='</div>';
+  h+='<div class="ip-stat">Predicted winner: <span style="color:'+partyColor(d.pw)+';font-weight:700">'+partyName(d.pw)+'</span>';
+  if(d.ch)h+=' <span class="ip-tag" style="background:#dc262618;color:#dc2626;border:1px solid #dc262644">GAIN from '+partyName(d.bw)+'</span>';
+  else h+=' <span class="ip-tag" style="background:#16a34a18;color:#16a34a;border:1px solid #16a34a44">HOLD</span>';
+  h+='</div>';
+  if(!d.rs)h+='<div class="ip-stat" style="color:#9ca3af;font-style:italic">Reform modelled as not standing here</div>';
+  h+='</div>';
+
+  /* Demographics */
+  h+='<div class="ip-section"><div class="ip-section-title">Demographics (Census 2021)</div>';
+  h+='<div class="ip-stat">Graduates: <b>'+d.d+'%</b> &middot; Non-white: <b>'+d.nw+'%</b></div>';
+  h+='<div class="ip-stat">Reform swing multiplier: <b>&times;'+d.sm.toFixed(2)+'</b>';
+  if(d.sm>=1.5)h+=' <span style="color:#dc2626;font-size:9px">(very high Reform susceptibility)</span>';
+  else if(d.sm>=1.0)h+=' <span style="color:#f59e0b;font-size:9px">(above average)</span>';
+  else if(d.sm>=0.5)h+=' <span style="color:#6b7280;font-size:9px">(below average)</span>';
+  else h+=' <span style="color:#3b82f6;font-size:9px">(Reform-resistant)</span>';
+  h+='</div></div>';
+
+  infoCtrl.update(h);
+}
+
+function mkLeg(items,note){return items.map(function(x){return'<div class="legend-item"><div class="legend-swatch" style="background:'+x[0]+'"></div>'+(x[2]?'<div>'+x[1]+'<br><span class="legend-def">'+x[2]+'</span></div>':x[1])+'</div>'}).join('')+(note?'<div class="legend-note">'+note+'</div>':'')}
+
+function getLegendHTML(){
+  if(CL==='predicted_winner'||CL==='baseline_winner'){
+    var t=CL==='predicted_winner'?'Predicted Winner (May 2026)':'Baseline Winner (Last Election)';
+    return'<div class="legend-title">'+t+'</div>'+mkLeg([['#e4003b','Labour'],['#0087dc','Conservative'],['#faa61a','Lib Dem'],['#12b6cf','Reform'],['#6ab023','Green'],['#888','Other / Independent'],['#e5e7eb','No data']],'Model based on Feb 2026 polling.<br>Grey = ward not modelled.')}
+  if(CL==='seat_change')return'<div class="legend-title">Predicted Seat Changes</div><div style="font-size:9.5px;color:#666;margin-bottom:4px">Coloured = gaining party. Grey = hold.</div>'+mkLeg([['#e4003b','Labour gain'],['#0087dc','Conservative gain'],['#faa61a','Lib Dem gain'],['#12b6cf','Reform gain'],['#6ab023','Green gain'],['#888','Other gain'],['#e5e7eb','No change / no data']],'');
+  if(CL==='reform_pct')return'<div class="legend-title">Predicted Reform Vote %</div>'+mkLeg([['#f0fdfa','<4%'],['#ccfbf1','4\u20138%'],['#99f6e4','8\u201312%'],['#5eead4','12\u201316%'],['#14b8a6','16\u201322%'],['#0d9488','22\u201328%'],['#0f766e','28\u201335%'],['#134e4a','35%+']],'Faded = Reform modelled as not standing.<br>Based on demographic swing model.');
+  if(CL==='reform_swing')return'<div class="legend-title">Reform Swing Multiplier</div><div style="font-size:9.5px;color:#666;margin-bottom:4px">How much more/less this ward swings to Reform vs national average (&times;1.0)</div>'+mkLeg([['#3b82f6','Very low (<0.3&times;)','Highly educated, diverse'],['#93c5fd','Low (0.3\u20130.5&times;)'],['#bfdbfe','Below avg (0.5\u20130.8&times;)'],['#fecaca','Average (0.8\u20131.0&times;)'],['#f87171','Above avg (1.0\u20131.2&times;)'],['#dc2626','High (1.2\u20131.5&times;)'],['#991b1b','Very high (1.5\u20131.8&times;)'],['#7f1d1d','Extreme (1.8&times;+)','Low education, white, ex-industrial']],'');
+  if(CL==='education')return'<div class="legend-title">% with Degree (Level 4+)</div>'+mkLeg([['#eff6ff','<20%'],['#dbeafe','20\u201324%'],['#bfdbfe','24\u201328%'],['#93c5fd','28\u201332%'],['#60a5fa','32\u201336%'],['#3b82f6','36\u201342%'],['#1d4ed8','42\u201350%'],['#1e3a8a','50%+']],'Census 2021 TS067. Strongest predictor of<br>Reform voting (r = \u22120.71 at PCON level).');
+  if(CL==='diversity')return'<div class="legend-title">% Non-White Population</div>'+mkLeg([['#ffffcc','0\u20133%'],['#ffeda0','3\u20136%'],['#fed976','6\u201312%'],['#feb24c','12\u201320%'],['#fd8d3c','20\u201330%'],['#fc4e2a','30\u201345%'],['#e31a1c','45\u201360%'],['#b10026','60%+']],'Census 2021 TS021.');
+  if(CL==='bivariate'){var h='<div class="legend-title">Education &times; Predicted Reform %</div><div style="display:flex;align-items:flex-end;gap:6px;margin:6px 0"><div style="writing-mode:vertical-lr;transform:rotate(180deg);font-size:9px;color:#888;text-align:center">&uarr; Reform %</div><div><div style="display:grid;grid-template-columns:repeat(3,22px);grid-template-rows:repeat(3,22px);gap:1px">';BIV.flat().forEach(function(c){h+='<div style="border-radius:2px;background:'+c+'"></div>'});return h+'</div><div style="font-size:9px;color:#888;text-align:center;margin-top:2px">Graduate % &rarr;</div></div></div><div class="legend-note">&nwarr; Low education + high Reform<br>&searr; High education + low Reform</div>'}
+  return'';
+}
+
+function updateStats(){
+  if(!mapData||!statsDiv)return;
+  var vals=Object.values(mapData),n=vals.length;
+  var wins={};vals.forEach(function(v){wins[v.pw]=(wins[v.pw]||0)+1});
+  var base={};vals.forEach(function(v){base[v.bw]=(base[v.bw]||0)+1});
+  var chg=vals.filter(function(v){return v.ch}).length;
+  if(CL==='predicted_winner'){
+    statsDiv.innerHTML='Predicted: <span style="color:#e4003b">LAB '+(wins.LAB||0)+'</span> &middot; <span style="color:#0087dc">CON '+(wins.CON||0)+'</span> &middot; <span style="color:#faa61a">LD '+(wins.LD||0)+'</span> &middot; <span style="color:#12b6cf">REF '+(wins.REF||0)+'</span> &middot; <span style="color:#6ab023">GRN '+(wins.GREEN||0)+'</span> &middot; OTH '+(wins.OTHER||0)+' &middot; <span>'+chg+' seat changes</span>';
+  }else if(CL==='baseline_winner'){
+    statsDiv.innerHTML='Baseline: <span style="color:#e4003b">LAB '+(base.LAB||0)+'</span> &middot; <span style="color:#0087dc">CON '+(base.CON||0)+'</span> &middot; <span style="color:#faa61a">LD '+(base.LD||0)+'</span> &middot; <span style="color:#12b6cf">REF '+(base.REF||0)+'</span> &middot; <span style="color:#6ab023">GRN '+(base.GREEN||0)+'</span> &middot; OTH '+(base.OTHER||0);
+  }else if(CL==='seat_change'){
+    var gains={};vals.filter(function(v){return v.ch}).forEach(function(v){gains[v.pw]=(gains[v.pw]||0)+1});
+    statsDiv.innerHTML=chg+' predicted changes: <span style="color:#12b6cf">REF +'+(gains.REF||0)+'</span> &middot; <span style="color:#faa61a">LD +'+(gains.LD||0)+'</span> &middot; <span style="color:#e4003b">LAB +'+(gains.LAB||0)+'</span> &middot; <span style="color:#0087dc">CON +'+(gains.CON||0)+'</span> &middot; <span style="color:#6ab023">GRN +'+(gains.GREEN||0)+'</span> &middot; OTH +'+(gains.OTHER||0);
+  }else if(CL==='reform_pct'){
+    var standing=vals.filter(function(v){return v.rs}),avg=standing.reduce(function(s,v){return s+v.ref},0)/standing.length,high=standing.filter(function(v){return v.ref>=20}).length;
+    statsDiv.innerHTML='Mean Reform: <span>'+avg.toFixed(1)+'%</span> (where standing) &middot; '+high+' wards above 20% &middot; <span>Standing in '+standing.length+'/'+n+' wards</span>';
+  }else if(CL==='reform_swing'){
+    var avg=vals.reduce(function(s,v){return s+v.sm},0)/n;
+    statsDiv.innerHTML='Mean swing multiplier: <span>&times;'+avg.toFixed(2)+'</span> &middot; Based on <span>education (r=&minus;0.71) + ethnicity (r=&minus;0.33)</span> &middot; R&sup2; = 0.553';
+  }else if(CL==='education'){
+    var avg=vals.reduce(function(s,v){return s+v.d},0)/n;
+    statsDiv.innerHTML='Mean graduates: <span>'+avg.toFixed(1)+'%</span> &middot; Range: '+Math.min.apply(null,vals.map(function(v){return v.d})).toFixed(1)+'% to '+Math.max.apply(null,vals.map(function(v){return v.d})).toFixed(1)+'% &middot; <span>Strongest predictor of Reform vote</span>';
+  }else if(CL==='diversity'){
+    var avg=vals.reduce(function(s,v){return s+v.nw},0)/n;
+    statsDiv.innerHTML='Mean non-white: <span>'+avg.toFixed(1)+'%</span> &middot; Range: '+Math.min.apply(null,vals.map(function(v){return v.nw})).toFixed(1)+'% to '+Math.max.apply(null,vals.map(function(v){return v.nw})).toFixed(1)+'%';
+  }else if(CL==='bivariate'){
+    statsDiv.innerHTML='Education &times; Reform: <span>low education + high Reform</span> (top-left) vs <span>high education + low Reform</span> (bottom-right)';
+  }
+}
+
+function setLayer(name){
+  CL=name;
+  document.querySelectorAll('.map-btn').forEach(function(b){b.classList.remove('active')});
+  document.getElementById('btn-'+name).classList.add('active');
+  if(geoLayer)geoLayer.setStyle(getStyle);
+  if(legendCtrl)legendCtrl.update();
+  updateStats();
+}
+
+/* Gains & Losses table */
+var glData=null,glSortCol=-1,glSortAsc=true;
+function loadGainsLosses(){
+  if(glData){renderGL();return}
+  fetch('../data/le2026_councils.json').then(function(r){return r.json()}).then(function(d){
+    councilData=d;glData=Object.values(d);renderGL();
+  });
+}
+function renderGL(){
+  if(!glData)return;
+  var parties=['CON','LAB','LD','REF','GREEN','OTHER'];
+  // Compute national totals
+  var totals={};
+  parties.forEach(function(p){totals[p]=0});
+  glData.forEach(function(c){
+    var g=c.gains||{};
+    parties.forEach(function(p){totals[p]+=(g[p]||0)});
+  });
+  var summaryHTML='<b>National totals:</b> ';
+  parties.forEach(function(p){
+    var v=totals[p],s=v>0?'+'+v:v===0?'0':''+v;
+    var cls=v>0?'gl-gain':v<0?'gl-loss':'';
+    summaryHTML+='<span class="party-chip"><span style="color:'+partyColor(p)+'">'+partyName(p)+'</span> <span class="'+cls+'">'+s+'</span></span> &nbsp; ';
+  });
+  document.getElementById('gl-summary').innerHTML=summaryHTML;
+
+  // Render rows
+  var tbody=document.getElementById('gl-tbody');
+  var rows=glData.slice();
+  if(glSortCol>=0){
+    rows.sort(function(a,b){
+      var va,vb;
+      if(glSortCol===0){va=a.name;vb=b.name;return glSortAsc?va.localeCompare(vb):vb.localeCompare(va)}
+      if(glSortCol===1){va=a.type||'';vb=b.type||'';return glSortAsc?va.localeCompare(vb):vb.localeCompare(va)}
+      if(glSortCol===8){
+        va=(a.control||'')+(a.base_control||'');vb=(b.control||'')+(b.base_control||'');
+        return glSortAsc?va.localeCompare(vb):vb.localeCompare(va);
+      }
+      var pk=parties[glSortCol-2];
+      va=(a.gains||{})[pk]||0;vb=(b.gains||{})[pk]||0;
+      return glSortAsc?va-vb:vb-va;
+    });
+  }
+  var html='';
+  rows.forEach(function(c){
+    var g=c.gains||{};
+    html+='<tr><td>'+c.name+'</td><td>'+c.type+'</td>';
+    parties.forEach(function(p){
+      var v=g[p]||0,s=v>0?'+'+v:v===0?'&mdash;':''+v;
+      var cls=v>0?'gl-gain':v<0?'gl-loss':'';
+      html+='<td class="'+cls+'">'+s+'</td>';
+    });
+    // Control column
+    var ctrl=c.control||'NOC',bctrl=c.base_control||'NOC';
+    var ctrlHTML='<span style="color:'+partyColor(ctrl)+';font-weight:700">'+partyName(ctrl)+'</span>';
+    if(ctrl!==bctrl){
+      ctrlHTML+=' <span class="gl-ctrl-change" style="background:'+partyColor(ctrl)+'22;color:'+partyColor(ctrl)+';border:1px solid '+partyColor(ctrl)+'44">from '+partyName(bctrl)+'</span>';
+    }
+    html+='<td style="text-align:left">'+ctrlHTML+'</td></tr>';
+  });
+  tbody.innerHTML=html;
+}
+function sortGL(col){
+  if(glSortCol===col)glSortAsc=!glSortAsc;
+  else{glSortCol=col;glSortAsc=col<=1||col===8}
+  renderGL();
+}
+
+function initMap(){
+  map=L.map('map',{zoomControl:true}).setView([52.8,-1.5],7);
+  L.tileLayer('https://{s}.basemaps.cartocdn.com/light_nolabels/{z}/{x}/{y}{r}.png',{attribution:'\u00a9 OpenStreetMap \u00a9 CARTO',maxZoom:18}).addTo(map);
+  L.tileLayer('https://{s}.basemaps.cartocdn.com/light_only_labels/{z}/{x}/{y}{r}.png',{maxZoom:18,pane:'overlayPane'}).addTo(map);
+  infoCtrl=L.control({position:'topright'});
+  infoCtrl.onAdd=function(){this._div=L.DomUtil.create('div','info');this._div.innerHTML='<h4>Hover over a ward</h4><div class="ip-stat">May 2026 council election predictions</div><div class="ip-stat" style="margin-top:4px">1,620 wards &middot; 106 councils &middot; 8 layers</div><div class="ip-stat" style="margin-top:4px;color:#dc2626">Model only &mdash; not a forecast</div>';return this._div};
+  infoCtrl.update=function(html){this._div.innerHTML=html};
+  infoCtrl.addTo(map);
+  legendCtrl=L.control({position:'bottomleft'});
+  legendCtrl.onAdd=function(){this._div=L.DomUtil.create('div','legend');this.update();return this._div};
+  legendCtrl.update=function(){this._div.innerHTML=getLegendHTML()};
+  legendCtrl.addTo(map);
+  statsDiv=document.createElement('div');statsDiv.className='stats-bar';document.getElementById('map').appendChild(statsDiv);
+  Promise.all([
+    fetch('../assets/wards-2026.geojson').then(function(r){return r.json()}),
+    fetch('../data/le2026_predictions.json').then(function(r){return r.json()})
+  ]).then(function(results){
+    geoData=results[0];mapData=results[1];
+    geoLayer=L.geoJSON(geoData,{style:getStyle,onEachFeature:onEachFeature}).addTo(map);
+    updateStats();
+  }).catch(function(err){
+    document.getElementById('map').innerHTML='<div style="text-align:center;padding:60px 20px;color:#991b1b"><h3>Failed to load map data</h3><p>'+err.message+'</p><p style="color:#5a6577;font-size:12px">Serve locally: <code>python3 -m http.server</code></p></div>';
+  });
+}
+initMap();
+</script>
+</body>
+</html>
